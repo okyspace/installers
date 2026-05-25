@@ -1,0 +1,3 @@
+crds:
+  # -- Defines whether the KEDA CRDs have to be installed or not.
+  install: false
