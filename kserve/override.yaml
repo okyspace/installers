@@ -1,0 +1,4 @@
+kserve:
+  controller:
+    # -- KServe deployment mode: "Standard", "Knative".
+    deploymentMode: "Standard"
