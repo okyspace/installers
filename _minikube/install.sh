@@ -228,7 +228,7 @@ remove_cluster() {
 # =============================================================================
 #  INFRA — Calico CNI
 #  Provides pod networking and NetworkPolicy enforcement.
-#  Cluster must be started with --cni none so Calico owns the CNI config.
+#  Cluster must be started with --cni false so Calico owns the CNI config.
 # =============================================================================
 
 install_calico() {
