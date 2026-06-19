@@ -9,7 +9,7 @@
 #            │   all nodes  : CPUS / MEMORY from config.env (flat resource model)
 #            │   images     : stored on VM disk (disk-size), not host mount
 #            │                boltdb/mmap are incompatible with Docker volume mounts
-#            │ Calico CNI     — NetworkPolicy enforcement, pod CIDR 10.244.0.0/16
+#            │ Calico CNI     — native minikube --cni=calico; NetworkPolicy enforcement, pod CIDR 10.244.0.0/16
 #            │ MetalLB (L2)   — IP pool 192.168.100.11-192.168.100.20
 #
 #  PLATFORM │ NGINX Ingress Controller  @ 192.168.100.11  (core, always on)
@@ -215,6 +215,14 @@ _label_gpu_node() {
     nvidia.com/gpu=present:NoSchedule \
     --overwrite 2>/dev/null || true
   success "Node '${worker}' labelled as GPU worker (taint: nvidia.com/gpu=present:NoSchedule)."
+
+  # Restrict the nvidia device plugin daemonset to GPU nodes only (no-op if not yet installed)
+  if kubectl get daemonset nvidia-device-plugin-daemonset -n kube-system &>/dev/null; then
+    info "Patching nvidia-device-plugin-daemonset nodeSelector → nvidia.com/gpu=present ..."
+    kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system --type=json \
+      -p='[{"op":"add","path":"/spec/template/spec/nodeSelector","value":{"nvidia.com/gpu":"present"}}]' \
+      2>/dev/null || true
+  fi
 }
 
 remove_cluster() {
@@ -226,23 +234,20 @@ remove_cluster() {
 
 
 # =============================================================================
-#  INFRA — Calico CNI
-#  Provides pod networking and NetworkPolicy enforcement.
-#  Cluster must be started with --cni none so Calico owns the CNI config.
+#  INFRA — Calico CNI patches
+#  minikube installs Calico natively when started with --cni=calico.
+#  This section only applies custom patches (IP autodetection for docker network).
 # =============================================================================
 
 install_calico() {
-  section "INFRA │ Calico CNI ${CALICO_VERSION}"
+  section "INFRA │ Calico CNI patches"
   info "Pod CIDR: ${POD_CIDR}   Node subnet: ${SUBNET}"
-
-  local manifest="https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/calico.yaml"
-  info "Applying Calico manifest..."
-  curl -sL "${manifest}" \
-    | sed "s|192\\.168\\.0\\.0/16|${POD_CIDR}|g" \
-    | kubectl apply -f -
+  # minikube installs Calico natively via --cni=calico; this function only
+  # applies the patches that minikube's bundled manifest omits.
 
   # Calico auto-detects the wrong IP when a bridge interface is present; pin it
   # to the node subnet so BGP peers correctly across minikube's docker network.
+  info "Patching calico-node IP_AUTODETECTION_METHOD → cidr=${SUBNET}..."
   kubectl patch daemonset calico-node -n "${CALICO_NAMESPACE}" --type=json -p='[{
     "op": "add",
     "path": "/spec/template/spec/containers/0/env/-",
@@ -255,7 +260,7 @@ install_calico() {
   info "Waiting for all nodes to be Ready (up to 3m)..."
   kubectl wait node --all --for=condition=Ready --timeout=3m
 
-  success "Calico ${CALICO_VERSION} ready."
+  success "Calico ready."
   kubectl get nodes
 }
 

@@ -1,0 +1,1 @@
+minikube profile list
