@@ -1,0 +1,13 @@
+crds:
+  # -- Whether to install the `HTTPScaledObject` and `InterceptorRoute` [`CustomResourceDefinitions`](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
+  install: false
+
+scaler:
+  replicas: 1
+
+interceptor:
+  replicas:
+    # -- The minimum number of interceptor replicas that should ever be running
+    min: 1
+    # -- The maximum number of interceptor replicas that should ever be running
+    max: 50

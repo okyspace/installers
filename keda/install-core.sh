@@ -1,9 +1,9 @@
 APP=keda
 NAMESPACE="keda"
 CHART="./charts/keda"
-OVERRIDE="override.yaml"
+OVERRIDE="override-core.yaml"
 
-# install keda operator
+# install keda core
 helm upgrade --install \
     $APP \
     $CHART \
