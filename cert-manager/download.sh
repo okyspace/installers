@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 CHART_REPO=https://charts.jetstack.io
 CHART_NAME=cert-manager
 
-VERSION=${1:-v1.20.1}
+VERSION=${1:-v1.20.3}
 
 echo "Adding jetstack Helm repo..."
 helm repo add jetstack "${CHART_REPO}" --force-update

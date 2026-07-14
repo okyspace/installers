@@ -1,6 +1,6 @@
 APP=cert-manager
 NAMESPACE=cert-manager
-CHART=./cert-manager-v1.20.1.tgz
+CHART=./cert-manager-v1.20.3.tgz
 CONTEXT=
 OVERRIDE=override.yaml
 
