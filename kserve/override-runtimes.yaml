@@ -1,0 +1,44 @@
+define:
+  pullSecrets: &pullSecrets
+    - name: docker-aip-pullsecret
+
+kserve:
+  # Master switch - without this, no ClusterServingRuntimes are rendered at all.
+  servingruntime:
+    enabled: true
+
+    # huggingfaceserver runs vLLM as its backend
+    huggingfaceserver:
+      disabled: false
+      imagePullSecrets: *pullSecrets
+    huggingfaceserver_multinode:
+      disabled: false
+      imagePullSecrets: *pullSecrets
+    # tritonserver runs NVIDIA Triton Inference Server
+    tritonserver:
+      disabled: false
+      imagePullSecrets: *pullSecrets
+
+    # Everything else disabled.
+    tensorflow:
+      disabled: true
+    mlserver:
+      disabled: true
+    sklearnserver:
+      disabled: true
+    xgbserver:
+      disabled: true
+    pmmlserver:
+      disabled: true
+    predictiveserver:
+      disabled: true
+    paddleserver:
+      disabled: true
+    lgbserver:
+      disabled: true
+    torchserve:
+      disabled: true
+
+  # newer LLMInferenceService CRD (separate chart, not installed here).
+  llmisvcConfigs:
+    enabled: false
