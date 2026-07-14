@@ -6,26 +6,30 @@ define:
   # (quay.io/brancz/kube-rbac-proxy) and is versioned independently below.
   tag: &tag "v0.19.0"
 
-# Replace registry.onprem.example with your private registry address. 
+# Replace docker.io and quay.io with your private registry address. 
 # The images must be pushed to your private registry before installing KServe.
 kserve:
   controller:
     # -- KServe deployment mode: "Standard", "Knative".
     deploymentMode: "Standard"
-    image: registry.onprem.example/kserve/kserve-controller
+    gateway:
+      # Cluster runs NGINX Ingress not default Istio
+      ingressGateway:
+        className: nginx
+    image: docker.io/kserve/kserve-controller
     tag: *tag
-    rbacProxyImage: registry.onprem.example/brancz/kube-rbac-proxy:v0.18.0
+    rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
     imagePullSecrets: *pullSecrets
 
   agent:
-    image: registry.onprem.example/kserve/agent
+    image: docker.io/kserve/agent
     tag: *tag
 
   router:
-    image: registry.onprem.example/kserve/router
+    image: docker.io/kserve/router
     tag: *tag
     imagePullSecrets: *pullSecrets
 
   storage:
-    image: registry.onprem.example/kserve/storage-initializer
+    image: docker.io/kserve/storage-initializer
     tag: *tag

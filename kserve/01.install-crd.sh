@@ -1,4 +1,4 @@
-APP=kserve-crd
+APP=kserve-crds
 CHART=./charts/kserve-crd
 NAMESPACE=kserve
 CONTEXT=""

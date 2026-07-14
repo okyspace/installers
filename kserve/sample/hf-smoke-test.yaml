@@ -1,0 +1,134 @@
+# Minimal CPU-only smoke test for the huggingfaceserver ClusterServingRuntime.
+# Verifies the controller + runtime install actually work end-to-end - not a
+# real model (sshleifer/tiny-gpt2 has near-random weights, output is gibberish
+# by design). This cluster has no GPU nodes, so --backend=huggingface forces
+# plain transformers instead of vLLM's default GPU auto-select.
+#
+# Deploy:  kubectl apply -f hf-smoke-test.yaml
+# Test:    kubectl port-forward -n kserve-test svc/hf-smoke-test-predictor 8080:80
+#          curl -X POST http://127.0.0.1:8080/openai/v1/completions \
+#            -H "Content-Type: application/json" \
+#            -d '{"model": "hf-smoke-test", "prompt": "The quick brown fox", "max_tokens": 10}'
+#
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kserve-test
+---
+# Not strictly required for this sample (no cloud storage/IAM credentials
+# involved), but kept separate from "default" for clean per-model RBAC
+# scoping if you attach roles/pull secrets to it later.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hf-smoke-test
+  namespace: kserve-test
+---
+# For gated/private models (e.g. meta-llama/*), fill in the Secret below with
+# a real token before applying. huggingface_hub reads HF_TOKEN automatically
+# (verified inside the actual image) - no CLI flag needed, just the env var.
+# Not needed for the default sshleifer/tiny-gpt2 (public model).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hf-token
+  namespace: kserve-test
+type: Opaque
+stringData:
+  HF_TOKEN: <your-token>
+---
+# Persists the HF Hub download cache across pod restarts/rescheds - mounted
+# at /tmp/huggingface, which is this image's default HF_HOME (verified
+# inside the image), so no extra env var is needed to make it take effect.
+# Uses the "standard" StorageClass (minikube-hostpath, dynamic, RWO) -
+# always present on any minikube profile.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hf-cache
+  namespace: kserve-test
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: hf-smoke-test
+  namespace: kserve-test
+spec:
+  predictor:
+    serviceAccountName: hf-smoke-test
+    # Required for the hf-cache PVC below: minikube-hostpath provisions new
+    # volumes owned by root, but this image runs as uid=1000/gid=1000
+    # (verified inside the image) with no runAsUser override, so without
+    # fsGroup the container can't write into the mounted /tmp/huggingface -
+    # this was the actual cause of the CrashLoopBackOff (PermissionError).
+    securityContext:
+      fsGroup: 1000
+    # schedulerName: runai-scheduler   # default is "default-scheduler"
+    # annotations land on the pod template (not the ISVC object itself) -
+    # this is where Run:AI's scheduler/device-plugin annotations go, e.g.
+    # gpu-fraction or project/queue tagging. Exact keys depend on your
+    # Run:AI setup/version - not guessing them here, fill in from your docs.
+    # annotations:
+    #   gpu-fraction: "0.5"
+    volumes:
+      - name: hf-cache
+        persistentVolumeClaim:
+          claimName: hf-cache
+    model:
+      modelFormat:
+        name: huggingface
+      # image: registry.onprem.example/kserve/huggingfaceserver:v0.19.0
+      #   ^ overrides the ClusterServingRuntime's own image for just this
+      #     ISVC (full repo:tag in one string - no separate tag field here,
+      #     unlike override-runtimes.yaml's split image/tag). Leave unset to
+      #     use whatever kserve-huggingfaceserver currently points at.
+      # Other runtimes enabled on this cluster (see override-runtimes.yaml):
+      #   kserve-huggingfaceserver-multinode - same image, distributed vLLM across nodes
+      #   kserve-tritonserver                - modelFormat: tensorrt, NOT a drop-in swap here;
+      #                                         Triton expects a model-repository storageUri,
+      #                                         not the --model_id/--backend/--task args below
+      runtime: kserve-huggingfaceserver
+      args:
+        - --model_id=sshleifer/tiny-gpt2
+        - --backend=huggingface
+        - --task=text_generation
+      env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token
+              key: HF_TOKEN
+              optional: true
+      volumeMounts:
+        - name: hf-cache
+          mountPath: /tmp/huggingface
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+
+# Ingress is auto-created by the KServe controller (disableIngressCreation:
+# false is the chart default) - no separate Ingress resource needed here.
+# Class comes from override-controller.yaml's
+# kserve.controller.gateway.ingressGateway.className (set to nginx, matching
+# this cluster's actual ingress controller - the chart default of "istio"
+# would leave it unclaimed, since nothing here implements that class).
+#
+# Hostname is computed, not set anywhere in this file - domainTemplate
+# "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}" against this ISVC's
+# own name/namespace and the cluster-wide ingressDomain (example.com by
+# default) produces:
+#   hf-smoke-test-kserve-test.example.com            (ISVC-level)
+#   hf-smoke-test-predictor-kserve-test.example.com  (predictor-level)
+# example.com isn't real DNS, so requests need a matching Host header:
+#   curl -H "Host: hf-smoke-test-kserve-test.example.com" http://<nginx-lb-ip>/...
