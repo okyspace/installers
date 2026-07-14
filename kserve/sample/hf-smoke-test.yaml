@@ -37,24 +37,6 @@ type: Opaque
 stringData:
   HF_TOKEN: <your-token>
 ---
-# Persists the HF Hub download cache across pod restarts/rescheds - mounted
-# at /tmp/huggingface, which is this image's default HF_HOME (verified
-# inside the image), so no extra env var is needed to make it take effect.
-# Uses the "standard" StorageClass (minikube-hostpath, dynamic, RWO) -
-# always present on any minikube profile.
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: hf-cache
-  namespace: kserve-test
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: standard
-  resources:
-    requests:
-      storage: 10Gi
----
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
@@ -63,13 +45,13 @@ metadata:
 spec:
   predictor:
     serviceAccountName: hf-smoke-test
-    # Required for the hf-cache PVC below: minikube-hostpath provisions new
-    # volumes owned by root, but this image runs as uid=1000/gid=1000
-    # (verified inside the image) with no runAsUser override, so without
-    # fsGroup the container can't write into the mounted /tmp/huggingface -
-    # this was the actual cause of the CrashLoopBackOff (PermissionError).
-    securityContext:
-      fsGroup: 1000
+    # Pins min==max so KServe doesn't create its own default HPA - the
+    # ScaledObject below manages scaling instead. Without this, KEDA's
+    # admission webhook rejects the ScaledObject with "already managed by
+    # the hpa 'hf-smoke-test-predictor'" (verified - this is exactly what
+    # happened before adding these two fields).
+    minReplicas: 1
+    maxReplicas: 1
     # schedulerName: runai-scheduler   # default is "default-scheduler"
     # annotations land on the pod template (not the ISVC object itself) -
     # this is where Run:AI's scheduler/device-plugin annotations go, e.g.
@@ -78,9 +60,19 @@ spec:
     # annotations:
     #   gpu-fraction: "0.5"
     volumes:
+      # emptyDir, not a PVC: minikube's default "standard" StorageClass
+      # (k8s.io/minikube-hostpath) sets no nodeAffinity on the PVs it
+      # creates, so on this 2-node cluster the pod can land on either node
+      # while the actual directory only gets created (inconsistently owned,
+      # fsGroup not reliably applied) on whichever one first mounts it -
+      # verified this caused the CrashLoopBackOff (PermissionError writing
+      # to /tmp/huggingface). emptyDir sidesteps this: it's a real
+      # kubelet-managed volume that correctly respects the pod's
+      # securityContext regardless of node. Trade-off: cache doesn't survive
+      # pod restarts/rescheds - fine for a smoke test re-downloading a
+      # few-MB model, not fine for a real multi-GB model in production.
       - name: hf-cache
-        persistentVolumeClaim:
-          claimName: hf-cache
+        emptyDir: {}
     model:
       modelFormat:
         name: huggingface
@@ -132,3 +124,42 @@ spec:
 #   hf-smoke-test-predictor-kserve-test.example.com  (predictor-level)
 # example.com isn't real DNS, so requests need a matching Host header:
 #   curl -H "Host: hf-smoke-test-kserve-test.example.com" http://<nginx-lb-ip>/...
+---
+# Requires KEDA installed (installers/keda/install.sh) - NOT installed on
+# this cluster yet (checked: no scaledobjects.keda.sh CRD, no keda helm
+# release). Also requires a Prometheus scraping this predictor's /metrics
+# (also not set up here) for the "prometheus" trigger's serverAddress to
+# query. Applying this now will fail on both counts, same as the
+# ServiceMonitor above.
+#
+# Targets the actual Deployment RawDeployment mode creates
+# (hf-smoke-test-predictor, verified via `kubectl get deployment -n
+# kserve-test`) - this is Standard mode's plain Deployment, not a Knative
+# Revision, which is exactly why KEDA (not Knative's autoscaler) applies here.
+#
+# vllm:num_requests_waiting - confirmed by inspecting the actual vLLM version
+# bundled in kserve/huggingfaceserver:v0.19.0 (grepped the real metric name
+# strings, not guessed). Scales on queue depth: requests piling up faster
+# than they're being processed, rather than raw CPU/GPU utilization.
+#
+# NOTE: this sample's InferenceService runs --backend=huggingface (plain
+# transformers, CPU-only - this cluster has no GPU nodes), so it does NOT
+# actually emit vllm:* metrics. This trigger is written for when the same
+# ISVC is switched to --backend=vllm on a GPU node - it won't fire on real
+# data as currently deployed.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: hf-smoke-test
+  namespace: kserve-test
+spec:
+  scaleTargetRef:
+    name: hf-smoke-test-predictor
+  minReplicaCount: 1
+  maxReplicaCount: 3
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+        query: vllm:num_requests_waiting{namespace="kserve-test",pod=~"hf-smoke-test-predictor-.*"}
+        threshold: "5"
