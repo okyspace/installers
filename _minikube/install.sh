@@ -13,7 +13,10 @@
 #            │ MetalLB (L2)   — IP pool 192.168.100.11-192.168.100.20
 #
 #  PLATFORM │ NGINX Ingress Controller  @ 192.168.100.11  (core, always on)
-#   optional│ cert-manager              — TLS certificate automation
+#   optional│ Minikube Tunnel           — routes LoadBalancer/MetalLB IPs to this
+#            │                            host so they're reachable from outside
+#            │                            the cluster. Needs sudo (interactive).
+#            │ cert-manager              — TLS certificate automation
 #            │ KEDA                      — event-driven autoscaler
 #            │ KGateway                  — Kubernetes Gateway API
 #            │ Metrics Server            — kubectl top nodes/pods
@@ -44,13 +47,28 @@ section() { echo -e "\n${YELLOW}══ $* ══${RESET}"; }
 #  CONFIGURATION  —  sourced from config.env, overridable by env vars
 # =============================================================================
 
-# Load config.env (values there take effect unless already set in the shell)
+# Load config.env (values there take effect unless already set in the shell).
+# A plain `source` would unconditionally assign every KEY=value line,
+# clobbering any same-named env var the caller already exported (e.g.
+# CLUSTER_NAME=foo ./install.sh would otherwise be silently overwritten back
+# to config.env's value) — so snapshot any pre-set vars, source normally
+# (this still expands things like MOUNT_HOST=${SCRIPT_DIR}/data correctly),
+# then restore the caller's values over whatever config.env just wrote.
 if [[ -f "${SCRIPT_DIR}/config.env" ]]; then
-  # export only unset variables — shell env takes precedence
+  mapfile -t _cfg_keys < <(grep -oE '^[A-Za-z_][A-Za-z0-9_]*' "${SCRIPT_DIR}/config.env")
+  declare -A _preset=()
+  for _key in "${_cfg_keys[@]}"; do
+    [[ -n "${!_key:-}" ]] && _preset["${_key}"]="${!_key}"
+  done
+
   set -a
   # shellcheck source=config.env
   source <(grep -v '^\s*#' "${SCRIPT_DIR}/config.env" | grep -v '^\s*$')
   set +a
+
+  for _key in "${!_preset[@]}"; do
+    export "${_key}=${_preset[${_key}]}"
+  done
 fi
 
 # Fallback defaults (used when config.env is absent or a key is missing)
@@ -83,6 +101,8 @@ METALLB_IP_RANGE="${METALLB_IP_RANGE:-192.168.100.11-192.168.100.20}"
 NGINX_NAMESPACE="ingress-nginx"
 NGINX_VERSION="${NGINX_VERSION:-4.12.1}"
 NGINX_LB_IP="${NGINX_LB_IP:-192.168.100.11}"
+
+TUNNEL_LOG_FILE="${SCRIPT_DIR}/data/tunnel.log"
 
 CERT_MANAGER_NAMESPACE="cert-manager"
 CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.16.3}"
@@ -158,7 +178,7 @@ install_cluster() {
     info "Cluster already has ${node_count} node(s) — skipping node add."
   fi
 
-  _label_gpu_node
+  [[ "${ENABLE_GPU}" == "true" ]] && _label_gpu_node
 
   # Step 3 — StorageClass + PersistentVolume backed by data/pv/ inside the mounted folder
   info "Creating StorageClass and HostPath PersistentVolume '${PV_NAME}'..."
@@ -347,6 +367,44 @@ remove_nginx_ingress() {
   helm uninstall ingress-nginx --namespace "${NGINX_NAMESPACE}" 2>/dev/null || true
   kubectl delete namespace "${NGINX_NAMESPACE}" --ignore-not-found
   success "NGINX Ingress removed."
+}
+
+
+# =============================================================================
+#  PLATFORM — Minikube Tunnel  [optional]
+#  With the docker driver, LoadBalancer/MetalLB IPs (e.g. NGINX at
+#  ${NGINX_LB_IP}) aren't reachable from the host until something routes them.
+#  `minikube tunnel` does that — it must keep running, and needs sudo since it
+#  binds privileged ports and edits the host's routing table.
+# =============================================================================
+
+install_tunnel() {
+  section "PLATFORM │ Minikube Tunnel"
+  if pgrep -f "minikube tunnel --profile ${CLUSTER_NAME}" > /dev/null; then
+    success "Tunnel already running for '${CLUSTER_NAME}'."
+    return
+  fi
+
+  info "Starting 'minikube tunnel' in the background (requires sudo)..."
+  sudo -v
+  nohup sudo minikube tunnel --profile "${CLUSTER_NAME}" \
+    > "${TUNNEL_LOG_FILE}" 2>&1 &
+  disown
+
+  sleep 2
+  if pgrep -f "minikube tunnel --profile ${CLUSTER_NAME}" > /dev/null; then
+    success "Tunnel running — LoadBalancer IPs (e.g. ${NGINX_LB_IP}) are now reachable from this host."
+    echo "   Log: ${TUNNEL_LOG_FILE}"
+  else
+    echo "Tunnel failed to start — check ${TUNNEL_LOG_FILE}" >&2
+    return 1
+  fi
+}
+
+remove_tunnel() {
+  section "PLATFORM │ Remove Minikube Tunnel"
+  sudo pkill -f "minikube tunnel --profile ${CLUSTER_NAME}" 2>/dev/null || true
+  success "Tunnel stopped."
 }
 
 
@@ -662,6 +720,7 @@ remove_platform() {
   remove_kgateway
   remove_keda
   remove_cert_manager
+  remove_tunnel
   remove_nginx_ingress
 }
 
@@ -699,6 +758,7 @@ main() {
   install_nginx_ingress
 
   # ── PLATFORM (optional — uncomment to enable) ─────────────────────────────
+  # install_tunnel            # route LoadBalancer IPs to this host (needs sudo)
   # install_cert_manager      # TLS automation
   # install_keda              # event-driven autoscaler
   # install_kgateway          # Gateway API (alternative ingress)
