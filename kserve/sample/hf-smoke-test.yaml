@@ -76,11 +76,13 @@ spec:
     model:
       modelFormat:
         name: huggingface
-      # image: registry.onprem.example/kserve/huggingfaceserver:v0.19.0
+      image: docker.io/kserve/huggingfaceserver:v0.19.0-gpu
       #   ^ overrides the ClusterServingRuntime's own image for just this
       #     ISVC (full repo:tag in one string - no separate tag field here,
       #     unlike override-runtimes.yaml's split image/tag). Leave unset to
       #     use whatever kserve-huggingfaceserver currently points at.
+      #   NOTE: -gpu image on a no-GPU cluster - expect this pod to fail
+      #     (no CUDA device), separate from whether the override itself works.
       # Other runtimes enabled on this cluster (see override-runtimes.yaml):
       #   kserve-huggingfaceserver-multinode - same image, distributed vLLM across nodes
       #   kserve-tritonserver                - modelFormat: tensorrt, NOT a drop-in swap here;
@@ -105,9 +107,11 @@ spec:
         requests:
           cpu: "1"
           memory: 2Gi
+          nvidia.com/gpu: "2"
         limits:
           cpu: "2"
           memory: 4Gi
+          nvidia.com/gpu: "2"
 
 # Ingress is auto-created by the KServe controller (disableIngressCreation:
 # false is the chart default) - no separate Ingress resource needed here.

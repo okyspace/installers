@@ -2,6 +2,13 @@ define:
   pullSecrets: &pullSecrets
     - name: docker-aip-pullsecret
 
+# EXAMPLE ONLY - replace docker.io with your actual on-prem
+# registry host. Rule: swap the registry host, keep the rest of the path
+# (nvcr.io/nvidia/tritonserver -> <registry>/nvidia/tritonserver, etc.) - same
+# rule used in override-controller.yaml. huggingfaceserver_multinode reuses
+# huggingfaceserver.image (confirmed in the chart's patch template - it
+# templates "{{ .Values...huggingfaceserver.image }}:{{ tag }}-gpu"), so it
+# needs no separate image field here.
 kserve:
   # Master switch - without this, no ClusterServingRuntimes are rendered at all.
   servingruntime:
@@ -10,6 +17,7 @@ kserve:
     # huggingfaceserver runs vLLM as its backend
     huggingfaceserver:
       disabled: false
+      image: docker.io/kserve/huggingfaceserver
       imagePullSecrets: *pullSecrets
     huggingfaceserver_multinode:
       disabled: false
@@ -17,6 +25,7 @@ kserve:
     # tritonserver runs NVIDIA Triton Inference Server
     tritonserver:
       disabled: false
+      image: docker.io/nvidia/tritonserver
       imagePullSecrets: *pullSecrets
 
     # Everything else disabled.
