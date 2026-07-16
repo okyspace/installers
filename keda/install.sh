@@ -2,6 +2,7 @@ APP=keda
 NAMESPACE="keda"
 CHART="./charts/keda"
 OVERRIDE="override.yaml"
+VERSION="2.20.1"
 
 # install keda operator
 helm upgrade --install \
@@ -13,4 +14,4 @@ helm upgrade --install \
     --skip-crds
 
 # install crds
-kubectl apply --server-side -f https://github.com/kedacore/keda/releases/download/v2.19.0/keda-2.19.0-crds.yaml
+kubectl apply --server-side -f "keda-${VERSION}-crds.yaml"

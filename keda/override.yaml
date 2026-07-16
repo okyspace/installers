@@ -1,3 +1,14 @@
 crds:
   # -- Defines whether the KEDA CRDs have to be installed or not.
   install: false
+
+# EXAMPLE ONLY - replace with your actual on-prem registry host. Cascades to
+# all three components below (operator/metricsApiServer/webhooks all default
+# to ghcr.io) - confirmed in charts/keda/templates/*/deployment.yaml, each
+# does `.Values.global.image.registry | default .Values.image.<component>.registry`.
+global:
+  image:
+    registry: ghcr.io
+
+imagePullSecrets:
+  - name: docker-aip-pullsecret

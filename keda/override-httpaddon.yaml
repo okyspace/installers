@@ -1,0 +1,38 @@
+# Unlike core keda (override.yaml sets crds.install: false, CRDs applied
+# separately from keda-<version>-crds.yaml), keda-add-ons-http has no
+# standalone CRD manifest as a release asset - HTTPScaledObject/
+# InterceptorRoute are only templated inline in this chart. So crds.install
+# is left at the chart's own default (true); there's no alternate manifest
+# to apply instead.
+crds:
+  install: true
+
+define:
+  pullSecrets: &pullSecrets
+    - name: docker-aip-pullsecret
+
+# EXAMPLE ONLY - replace ghcr.io with your actual on-prem
+# registry host. No global.image.registry field exists in this chart
+# (checked values.yaml) - each component's image is its own full string
+# (registry+path together), so all three need editing individually. Rule:
+# swap the registry host, keep the rest of the path.
+images:
+  operator: ghcr.io/kedacore/http-add-on-operator
+  interceptor: ghcr.io/kedacore/http-add-on-interceptor
+  scaler: ghcr.io/kedacore/http-add-on-scaler
+
+operator:
+  imagePullSecrets: *pullSecrets
+
+scaler:
+  # -- Chart default is 3; 1 is enough for this dev/test cluster.
+  replicas: 1
+  imagePullSecrets: *pullSecrets
+
+interceptor:
+  imagePullSecrets: *pullSecrets
+  # interceptor.replicas is a {min, max} autoscaling range, not a flat count
+  # (chart default min: 3, max: 50) - pin both to 1 for this dev/test cluster.
+  replicas:
+    min: 1
+    max: 1
