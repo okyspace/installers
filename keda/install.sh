@@ -2,7 +2,7 @@ APP=keda
 NAMESPACE="keda"
 CHART="./charts/keda"
 OVERRIDE="override.yaml"
-VERSION="2.20.1"
+VERSION="2.20.2"
 
 # install keda operator
 helm upgrade --install \
