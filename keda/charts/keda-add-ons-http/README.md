@@ -1,0 +1,293 @@
+<p align="center"><img src="https://github.com/kedacore/keda/raw/main/images/logos/keda-word-colour.png" width="300"/></p>
+
+<p style="font-size: 25px" align="center"><b>Kubernetes-based Event Driven Autoscaling - HTTP Add-On</b></p>
+<p style="font-size: 25px" align="center">
+
+The KEDA HTTP Add On allows Kubernetes users to automatically scale their HTTP servers up and down (including to/from zero) based on incoming HTTP traffic. Please see our [use cases document](./docs/use_cases.md) to learn more about how and why you would use this project.
+
+| 🚧 **Alpha - Not for production** 🚧|
+|---------------------------------------------|
+| ⚠ The HTTP add-on is in [experimental stage](https://github.com/kedacore/keda/issues/538) and not ready for production. <br /><br />It is provided as-is without support.
+
+>This codebase moves very quickly. We can't currently guarantee that any part of it will work. Neither the complete feature set nor known issues may be fully documented. Similarly, issues filed against this project may not be responded to quickly or at all. **We will release and announce a beta release of this project**, and after we do that, we will document and respond to issues properly.
+
+## Walkthrough
+
+Although this is an **alpha release** project right now, we have prepared a walkthrough document that with instructions on getting started for basic usage.
+
+See that document at [docs/walkthrough.md](https://github.com/kedacore/http-add-on/tree/main/docs/walkthrough.md)
+
+## Design
+
+The HTTP add-on is composed of multiple mostly independent components. This design was chosen to allow for highly
+customizable installations while allowing us to ship reasonable defaults.
+
+- We have written a complete design document. Please see it at [docs/design.md](https://github.com/kedacore/http-add-on/tree/main/docs/design.md).
+- For more context on the design, please see our [scope document](https://github.com/kedacore/http-add-on/tree/main/docs/scope.md).
+- If you have further questions about the project, please see our [FAQ document](https://github.com/kedacore/http-add-on/tree/main/docs/faq.md).
+
+## Installation
+
+Please see the [complete installation instructions](https://github.com/kedacore/http-add-on/tree/main/docs/install.md).
+
+## Contributing
+
+Please see the [contributing documentation for all instructions](https://github.com/kedacore/http-add-on/tree/main/docs/contributing.md).
+
+---
+We are a Cloud Native Computing Foundation (CNCF) graduated project.
+<p align="center"><img src="https://raw.githubusercontent.com/kedacore/keda/main/images/logo-cncf.svg" height="75px"></p>
+
+---
+
+## TL;DR
+
+```console
+helm repo add kedacore https://kedacore.github.io/charts
+helm repo update
+
+helm install http-add-on kedacore/keda-add-ons-http --create-namespace --namespace keda --version 0.15.0
+```
+
+## Introduction
+
+This chart bootstraps KEDA HTTP Add-on infrastructure on a Kubernetes cluster using the Helm package manager.
+
+As part of that, it will install all the required Custom Resource Definitions (CRD).
+
+## Installing the Chart
+
+To install the chart with the release name `http-add-on`, please read the [install instructions on the official repository to get started](https://github.com/kedacore/http-add-on/tree/main/docs/install.md):
+
+```console
+$ helm install http-add-on kedacore/keda-add-ons-http --namespace keda
+```
+
+> **Important:** This chart **needs** KEDA installed in your cluster to work properly.
+
+## Uninstalling the Chart
+
+To uninstall/delete the `http-add-on` Helm chart:
+
+```console
+helm uninstall http-add-on
+```
+
+The command removes all the Kubernetes components associated with the chart and deletes the release.
+
+## Configuration
+
+The following table lists the configurable parameters of the HTTP Add-On chart and
+their default values.
+
+### General parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `additionalLabels` | object | `{}` | Additional labels to be applied to installed resources. Note that not all resources will receive these labels. |
+| `crds.install` | bool | `true` | Whether to install the `HTTPScaledObject` and `InterceptorRoute` [`CustomResourceDefinitions`](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) |
+| `images.interceptor` | string | `"ghcr.io/kedacore/http-add-on-interceptor"` | Image name for the interceptor image component |
+| `images.operator` | string | `"ghcr.io/kedacore/http-add-on-operator"` | Image name for the operator image component |
+| `images.scaler` | string | `"ghcr.io/kedacore/http-add-on-scaler"` | Image name for the scaler image component |
+| `images.tag` | string | `""` | Image tag for the http add on. This tag is applied to the images listed in `images.operator`, `images.interceptor`, and `images.scaler`. Optional, given app version of Helm chart is used by default |
+| `logging.interceptor.format` | string | `"console"` | Logging format for KEDA http-add-on Interceptor. allowed values: `json` or `console` |
+| `logging.interceptor.level` | string | `"info"` | Logging level for KEDA http-add-on Interceptor. allowed values: `debug`, `info`, `error`, or an integer value greater than 0, specified as string |
+| `logging.interceptor.stackTracesEnabled` | bool | `false` | Display stack traces in the logs |
+| `logging.interceptor.timeEncoding` | string | `"rfc3339"` | Logging time encoding for KEDA http-add-on Interceptor. allowed values are `epoch`, `millis`, `nano`, `iso8601`, `rfc3339` or `rfc3339nano` |
+| `logging.operator.format` | string | `"console"` | Logging format for KEDA http-add-on operator. allowed values: `json` or `console` |
+| `logging.operator.level` | string | `"info"` | Logging level for KEDA http-add-on operator. allowed values: `debug`, `info`, `error`, or an integer value greater than 0, specified as string |
+| `logging.operator.stackTracesEnabled` | bool | `false` | Display stack traces in the logs |
+| `logging.operator.timeEncoding` | string | `"rfc3339"` | Logging time encoding for KEDA http-add-on operator. allowed values are `epoch`, `millis`, `nano`, `iso8601`, `rfc3339` or `rfc3339nano` |
+| `logging.scaler.format` | string | `"console"` | Logging format for KEDA http-add-on Scaler. allowed values: `json` or `console` |
+| `logging.scaler.level` | string | `"info"` | Logging level for KEDA http-add-on Scaler. allowed values: `debug`, `info`, `error`, or an integer value greater than 0, specified as string |
+| `logging.scaler.stackTracesEnabled` | bool | `false` | Display stack traces in the logs |
+| `logging.scaler.timeEncoding` | string | `"rfc3339"` | Logging time encoding for KEDA http-add-on Scaler. allowed values are `epoch`, `millis`, `nano`, `iso8601`, `rfc3339` or `rfc3339nano` |
+| `podSecurityContext` | object | [See below](#KEDA-is-secure-by-default) | [Pod security context] for all pods |
+| `profiling.interceptor.enabled` | bool | `false` | Enable profiling for KEDA http-add-on Interceptor |
+| `profiling.interceptor.port` | int | `8086` | Expose profiling on a specific port |
+| `profiling.operator.enabled` | bool | `false` | Enable profiling for KEDA http-add-on Operator |
+| `profiling.operator.port` | int | `8085` | Expose profiling on a specific port |
+| `profiling.scaler.enabled` | bool | `false` | Enable profiling for KEDA http-add-on Scaler |
+| `profiling.scaler.port` | int | `8087` | Expose profiling on a specific port |
+| `rbac.aggregateToDefaultRoles` | bool | `false` | Install aggregate roles for edit and view |
+| `securityContext` | object | [See below](#KEDA-is-secure-by-default) | [Security context] for all containers |
+
+### Operator
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `operator.affinity` | object | `{}` | Affinity for pod scheduling ([docs](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes-using-node-affinity/)) |
+| `operator.extraEnvs` | object | `{}` | Extra environment variables to set (key-value map with "ENV name":"value") |
+| `operator.imagePullSecrets` | list | `[]` | The image pull secrets for the operator component |
+| `operator.metrics.auth` | bool | `true` | Enable authentication and authorization for the metrics endpoint |
+| `operator.metrics.certDir` | string | `""` | Directory containing TLS certificates (tls.crt/tls.key). If empty, self-signed certs are generated. |
+| `operator.metrics.secure` | bool | `true` | Enable HTTPS for the metrics endpoint |
+| `operator.nodeSelector` | object | `{}` | Node selector for pod scheduling ([docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)) |
+| `operator.podAnnotations` | object | `{}` | Annotations to be added to the operator pods |
+| `operator.port` | int | `8443` | The port for the operator main server to run on |
+| `operator.pullPolicy` | string | `"Always"` | The image pull policy for the operator component |
+| `operator.replicas` | int | `1` | Number of replicas, operator k8s resources will not be installed if this is set to 0 |
+| `operator.resources.limits` | object | `{"cpu":0.5,"memory":"64Mi"}` | The CPU/memory resource limit for the operator component |
+| `operator.resources.requests` | object | `{"cpu":"250m","memory":"20Mi"}` | The CPU/memory resource request for the operator component |
+| `operator.tolerations` | list | `[]` | Tolerations for pod scheduling ([docs](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)) |
+| `operator.topologySpreadConstraints` | list | `[]` | Topology spread constraints ([docs](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/)) |
+| `operator.watchNamespace` | string | `""` | The namespace to watch for new `HTTPScaledObject`s. Leave this blank (i.e. `""`) to tell the operator to watch all namespaces. |
+
+### Scaler
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `scaler.affinity` | object | `{}` | Affinity for pod scheduling ([docs](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes-using-node-affinity/)) |
+| `scaler.extraEnvs` | object | `{}` | Extra environment variables to set (key-value map with "ENV name":"value") |
+| `scaler.grpcPort` | int | `9090` | The port for the scaler's gRPC server. This is the server that KEDA will send scaling requests to. |
+| `scaler.imagePullSecrets` | list | `[]` | The image pull secrets for the scaler component |
+| `scaler.metrics.otlp.enabled` | bool | `false` | Enable the OTLP HTTP metrics exporter for the scaler |
+| `scaler.metrics.prometheus.enabled` | bool | `true` | Enable the Prometheus metrics exporter for the scaler |
+| `scaler.metrics.prometheus.port` | int | `2223` | Port for the scaler's Prometheus `/metrics` endpoint |
+| `scaler.nodeSelector` | object | `{}` | Node selector for pod scheduling ([docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)) |
+| `scaler.pendingRequestsInterceptor` | int | `200` | The number of "target requests" that the external scaler will report to KEDA for the interceptor's scaling metrics. See the [KEDA external scaler documentation](https://keda.sh/docs/2.4/concepts/external-scalers/) for details on target requests. |
+| `scaler.podAnnotations` | object | `{}` | Annotations to be added to the scaler pods |
+| `scaler.pullPolicy` | string | `"Always"` | The image pull policy for the scaler component |
+| `scaler.replicas` | int | `3` | Number of replicas |
+| `scaler.resources.limits.cpu` | float | `0.5` |  |
+| `scaler.resources.limits.memory` | string | `"64Mi"` |  |
+| `scaler.resources.requests.cpu` | string | `"250m"` |  |
+| `scaler.resources.requests.memory` | string | `"20Mi"` |  |
+| `scaler.service` | string | `"external-scaler"` | The name of the Kubernetes `Service` for the scaler component |
+| `scaler.streamInterval` | int | `200` | Interval in ms for communicating IsActive to KEDA |
+| `scaler.tolerations` | list | `[]` | Tolerations for pod scheduling ([docs](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)) |
+| `scaler.topologySpreadConstraints` | list | `[]` | Topology spread constraints ([docs](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/)) |
+| `scaler.tracing.enabled` | bool | `false` | Enable OTLP tracing for the scaler |
+| `scaler.tracing.protocol` | string | `"console"` | Tracing exporter protocol (`console`, `http/protobuf`, or `grpc`) |
+
+### Interceptor
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `interceptor.admin.appProtocol` | string | `""` | The appProtocol for the interceptor's admin service port |
+| `interceptor.admin.port` | int | `9090` | The port for the interceptor's admin server to run on |
+| `interceptor.admin.service` | string | `"interceptor-admin"` | The name of the Kubernetes `Service` for the interceptor's admin service |
+| `interceptor.affinity` | object | `{}` | Affinity for pod scheduling ([docs](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes-using-node-affinity/)) |
+| `interceptor.drainTimeout` | string | `"30s"` | Maximum time to wait for in-flight requests (including WebSocket connections) to complete after the proxy listener closes. `0` waits indefinitely (bounded only by terminationGracePeriodSeconds). |
+| `interceptor.extraEnvs` | object | `{}` | Extra environment variables to set (key-value map with "ENV name":"value") |
+| `interceptor.imagePullSecrets` | list | `[]` | The image pull secrets for the interceptor component |
+| `interceptor.maxIdleConns` | int | `1000` | The maximum number of idle connections allowed in the interceptor's in-memory connection pool. Set to 0 to indicate no limit |
+| `interceptor.maxIdleConnsPerHost` | int | `200` | The maximum number of idle connections allowed per host in the interceptor's in-memory connection pool |
+| `interceptor.nodeSelector` | object | `{}` | Node selector for pod scheduling ([docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)) |
+| `interceptor.pdb.enabled` | bool | `true` | Whether to install the `PodDisruptionBudget` for the interceptor |
+| `interceptor.pdb.maxUnavailable` | int | `1` | The maximum number of replicas that can be unavailable for the interceptor |
+| `interceptor.pdb.minAvailable` | int | `0` | The minimum number of replicas that should be available for the interceptor |
+| `interceptor.podAnnotations` | object | `{}` | Annotations to be added to the interceptor pods |
+| `interceptor.proxy.appProtocol` | string | `""` | The appProtocol for the interceptor's proxy service port |
+| `interceptor.proxy.port` | int | `8080` | The port on which the interceptor's proxy service will listen for live HTTP traffic |
+| `interceptor.proxy.service` | string | `"interceptor-proxy"` | The name of the Kubernetes `Service` for the interceptor's proxy service. This is the service that accepts live HTTP traffic. |
+| `interceptor.pullPolicy` | string | `"Always"` | The image pull policy for the interceptor component |
+| `interceptor.readinessTimeout` | string | `""` | Time to wait for the backend to become ready, e.g. scale from zero. Replaces the deprecated `interceptor.replicas.waitTimeout` fallback. When unset, uses the code default (disabled). |
+| `interceptor.replicas.max` | int | `50` | The maximum number of interceptor replicas that should ever be running |
+| `interceptor.replicas.min` | int | `3` | The minimum number of interceptor replicas that should ever be running |
+| `interceptor.replicas.waitTimeout` | string | `""` | Deprecated fallback for `interceptor.readinessTimeout`. Supported for backward compatibility during upgrades; use `interceptor.readinessTimeout` instead. |
+| `interceptor.requestTimeout` | string | `""` | Total request lifecycle deadline. When unset, uses the code default (disabled). |
+| `interceptor.resources.limits` | object | `{"cpu":0.5,"memory":"64Mi"}` | The CPU/memory resource limit for the interceptor component |
+| `interceptor.resources.requests` | object | `{"cpu":"250m","memory":"20Mi"}` | The CPU/memory resource request for the interceptor component |
+| `interceptor.responseHeaderTimeout` | string | `""` | Time to wait for response headers from the backend. When unset, uses the code default (300s). |
+| `interceptor.scaledObject.pollingInterval` | int | `1` | The interval (in milliseconds) that KEDA should poll the external scaler to fetch scaling metrics about the interceptor |
+| `interceptor.shutdownDelay` | string | `"5s"` | Time between receiving SIGTERM and closing the proxy listener. During this window the readiness probe returns 503 while the server continues serving both in-flight and new requests, giving Kubernetes time to propagate endpoint removal. |
+| `interceptor.tcpConnectTimeout` | string | `""` | Per-attempt TCP dial timeout. When unset, uses the code default (500ms). |
+| `interceptor.terminationGracePeriodSeconds` | int | `45` | Time Kubernetes waits before sending SIGKILL after SIGTERM. Must be at least shutdownDelay + drainTimeout. |
+| `interceptor.tls.appProtocol` | string | `""` | The appProtocol for the interceptor's TLS proxy service port |
+| `interceptor.tls.certPath` | string | `"/certs/tls.crt"` | Mount path of the certificate file to use with the interceptor proxy TLS server. Also accepts the deprecated `cert_path`. |
+| `interceptor.tls.certSecret` | string | `"keda-tls-certs"` | Name of the Kubernetes secret that contains the certificates to be used with the interceptor proxy TLS server. Also accepts the deprecated `cert_secret`. |
+| `interceptor.tls.cipherSuites` | string | `""` | Comma-separated list of supported cipher suites for the interceptor proxy TLS server. Defaults to Go's standard cipher suites. |
+| `interceptor.tls.curvePreferences` | string | `""` | Comma-separated list of supported curve preferences for the interceptor proxy TLS server. Defaults to Go's standard curve selections. |
+| `interceptor.tls.enabled` | bool | `false` | Whether a TLS server should be started on the interceptor proxy |
+| `interceptor.tls.keyPath` | string | `"/certs/tls.key"` | Mount path of the certificate key file to use with the interceptor proxy TLS server. Also accepts the deprecated `key_path`. |
+| `interceptor.tls.maxVersion` | string | `""` | Maximum TLS version for the interceptor proxy TLS server (e.g. "1.2" or "1.3"). Defaults to Go's standard maximum version. |
+| `interceptor.tls.minVersion` | string | `""` | Minimum TLS version for the interceptor proxy TLS server (e.g. "1.2" or "1.3"). Defaults to Go's standard minimum version. |
+| `interceptor.tls.port` | int | `8443` | Port that the interceptor proxy TLS server should be started on |
+| `interceptor.tls.skipVerify` | bool | `false` | Whether to skip TLS verification for the interceptor proxy TLS server. Also accepts the deprecated `skip_verify`. |
+| `interceptor.tolerations` | list | `[]` | Tolerations for pod scheduling ([docs](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)) |
+| `interceptor.topologySpreadConstraints` | list | `[]` | Topology spread constraints ([docs](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/)) |
+
+Specify each parameter using the `--set key=value[,key=value]` argument to
+`helm install`. For example:
+
+```console
+$ helm install http-add-on kedacore/keda-add-ons-http --namespace keda \
+               --set version=<different tag from app version>
+```
+
+Alternatively, a YAML file that specifies the values for the above parameters can
+be provided while installing the chart. For example,
+
+```console
+helm install http-add-on kedacore/keda-add-ons-http --namespace keda -f values.yaml
+```
+
+## KEDA is secure by default
+
+Our default configuration strives to be as secure as possible. Because of that, KEDA will run as non-root and be secure-by-default. You can define global securityContext for all components or switch to granular mode and define securityContext for operator, kuberbacproxy, scaler, and interceptor:
+```yaml
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  privileged: false
+  readOnlyRootFilesystem: true
+  # runAsUser: 1000
+  # runAsGroup: 1000
+  # operator:
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # allowPrivilegeEscalation: false
+    # readOnlyRootFilesystem: true
+    # seccompProfile:
+    #   type: RuntimeDefault
+  # kuberbacproxy:
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # allowPrivilegeEscalation: false
+    # readOnlyRootFilesystem: true
+    # seccompProfile:
+    #   type: RuntimeDefault
+  # scaler:
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # allowPrivilegeEscalation: false
+    # readOnlyRootFilesystem: true
+    # seccompProfile:
+    #   type: RuntimeDefault
+  # interceptor:
+    # capabilities:
+    #  drop:
+    #  - ALL
+    # allowPrivilegeEscalation: false
+    # readOnlyRootFilesystem: true
+    # seccompProfile:
+    #   type: RuntimeDefault
+podSecurityContext:
+  fsGroup: 1000
+  supplementalGroups:
+  - 1000
+  # operator:
+    # runAsNonRoot: true
+    # runAsUser: 1000
+    # runAsGroup: 1000
+    # fsGroup: 1000
+  # scaler:
+    # runAsNonRoot: true
+    # runAsUser: 1000
+    # runAsGroup: 1000
+    # fsGroup: 1000
+  # interceptor:
+    # runAsNonRoot: true
+    # runAsUser: 1000
+    # runAsGroup: 1000
+    # fsGroup: 1000
+```
+
+----------------------------------------------
+Autogenerated from chart metadata using [helm-docs](https://github.com/norwoodj/helm-docs)

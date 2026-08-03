@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: interceptor
+    app.kubernetes.io/name: http-add-on
+    {{- include "keda-http-add-on.labels" . | indent 4 }}
+  name: "{{ .Chart.Name }}-{{ .Values.interceptor.proxy.service }}"
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: proxy
+    port: {{ default 9091 .Values.interceptor.proxy.port }}
+    targetPort: proxy
+    {{- if .Values.interceptor.proxy.appProtocol }}
+    appProtocol: {{ .Values.interceptor.proxy.appProtocol }}
+    {{- end }}
+  {{- if .Values.interceptor.tls.enabled }}
+  - name: proxy-tls
+    port: {{ default 8443 .Values.interceptor.tls.port }}
+    targetPort: proxy-tls
+    {{- with (.Values.interceptor.tls.appProtocol | default .Values.interceptor.proxy.appProtocol) }}
+    appProtocol: {{ . }}
+    {{- end }}
+  {{- end }}
+  selector:
+    app.kubernetes.io/component: interceptor
+    app.kubernetes.io/name: http-add-on
+    {{- include "keda-http-add-on.matchLabels" . | indent 4 }}

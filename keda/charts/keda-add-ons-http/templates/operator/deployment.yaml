@@ -1,0 +1,122 @@
+{{- if gt (int .Values.operator.replicas) 0 }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/name: http-add-on
+    {{- include "keda-http-add-on.labels" . | indent 4 }}
+  name: {{ .Chart.Name }}-controller-manager
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.operator.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: operator
+      app.kubernetes.io/name: http-add-on
+      {{- include "keda-http-add-on.matchLabels" . | indent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: operator
+        app.kubernetes.io/name: http-add-on
+        {{- include "keda-http-add-on.labels" . | indent 8 }}
+      annotations:
+        {{- with .Values.operator.podAnnotations }}
+        {{- range $key, $value := . }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+    spec:
+      imagePullSecrets: 
+        {{- toYaml .Values.operator.imagePullSecrets | nindent 8 }}
+      serviceAccountName: {{ .Chart.Name }}
+      {{- if .Values.podSecurityContext.operator }}
+      securityContext:
+      {{- toYaml .Values.podSecurityContext.operator | nindent 8 }}
+      {{- else }}
+      securityContext:
+      {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+      - args:
+        - --metrics-bind-address=:{{ .Values.operator.port }}
+        {{- if .Values.operator.metrics.secure }}
+        - --metrics-secure=true
+        {{- end }}
+        {{- if .Values.operator.metrics.auth }}
+        - --metrics-auth=true
+        {{- end }}
+        {{- if .Values.operator.metrics.certDir }}
+        - --metrics-cert-dir={{ .Values.operator.metrics.certDir }}
+        {{- end }}
+        - --leader-elect
+        - --zap-log-level={{ .Values.logging.operator.level }}
+        - --zap-time-encoding={{ .Values.logging.operator.timeEncoding }}
+        - --zap-encoder={{ .Values.logging.operator.format }}
+        {{- if .Values.logging.operator.stackTracesEnabled }}
+        - "--zap-stacktrace-level=error"
+        {{- end }}
+        {{- if .Values.profiling.operator.enabled }}
+        - --profiling-bind-address=127.0.0.1:{{ .Values.profiling.operator.port }}
+        {{- end}}
+        image: "{{ .Values.images.operator }}:{{ .Values.images.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: '{{ .Values.operator.pullPolicy | default "Always" }}'
+        name: "{{ .Chart.Name }}-operator"
+        env:
+        - name: KEDA_HTTP_OPERATOR_EXTERNAL_SCALER_SERVICE
+          value: "{{ .Chart.Name }}-{{ .Values.scaler.service }}"
+        - name: KEDA_HTTP_OPERATOR_EXTERNAL_SCALER_PORT
+          value: "{{ default 9090 .Values.scaler.grpcPort }}"
+        - name: KEDA_HTTP_OPERATOR_NAMESPACE
+          value: "{{ .Release.Namespace }}"
+        - name: KEDA_HTTP_OPERATOR_WATCH_NAMESPACE
+          value: "{{ .Values.operator.watchNamespace }}"
+        {{- range $key, $value := .Values.operator.extraEnvs }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        ports:
+        - name: metrics
+          containerPort: {{ .Values.operator.port }}
+        - name: probes
+          containerPort: 8081
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: probes
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: probes
+        resources:
+          {{- toYaml .Values.operator.resources | nindent 10 }}
+        {{- if .Values.securityContext.operator }}
+        securityContext:
+        {{- toYaml .Values.securityContext.operator | nindent 10 }}
+        {{- else }}
+        securityContext:
+        {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- end }}
+      terminationGracePeriodSeconds: 10
+      nodeSelector:
+        kubernetes.io/os: linux
+      {{- with .Values.operator.nodeSelector }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.operator.priorityClassName }}
+      priorityClassName: {{ .Values.operator.priorityClassName }}
+      {{- end }}
+{{- end }}
